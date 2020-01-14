@@ -17,5 +17,5 @@ In the future, I plan on including a detailed list of the most useful learning p
             
              
               
-#### Huck, get out of my repo!
-<img src='https://harrisonjansma.com/img/huck/huck32.jpg' width=100>
+##### Huck, get out of my repo!
+<img src='https://harrisonjansma.com/img/huck/huck32.jpg' width=200>
