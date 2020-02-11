@@ -1,4 +1,4 @@
-# 2019_Notes
+# 2020_Notes
 
 This repository contains various scripts, jupyter notebooks, and other notes on topics that I find interesting. At the moment, this repository is NOT useful as an educational resource.
 
