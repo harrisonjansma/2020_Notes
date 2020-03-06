@@ -1,8 +1,26 @@
+"""
+CIFAR_FUNCTIONS
+
+A collection of utility functions to speed up the process of model implementations. The idea being to reduce the amount of boilerplate code in each notebook, so the focus can be on the coding of the model architecture.
+
+
+
+"""
+
 import tensorflow as     tf
 import math
 import numpy             as np
 import matplotlib.pyplot as plt
 from tensorflow.keras.layers import *
+from pathlib import Path
+import tensorflow_datasets as tfds
+import pandas as pd
+import time
+
+######################################################################
+# TRAINING HYPERPARAMETERS
+######################################################################
+
 
 DATA_NUM_CLASSES        = 10
 DATA_CHANNELS           = 3
@@ -39,6 +57,48 @@ TRAINING_LR_FINAL   = TRAINING_LR_MAX*TRAINING_LR_FINAL_SCALE
 # saving
 SAVE_MODEL_PATH = 'F://Models/Model_Design/'
 
+
+######################################################################
+# DATA PROCESSING CIFAR DATASET
+######################################################################
+
+def pre_processing_train(example):
+    image = example["image"]
+    label = example["label"]
+    image = tf.math.divide(tf.math.subtract(tf.dtypes.cast(image, tf.float32), DATA_MEAN), DATA_STD_DEV)
+    image = tf.image.random_flip_left_right(image)
+    image = tf.image.random_crop(image, size=[DATA_CROP_ROWS, DATA_CROP_COLS, 3])
+    label = tf.dtypes.cast(label, tf.int32)
+    return image, label
+
+
+def pre_processing_test(example):
+    image = example["image"]
+    label = example["label"]
+    image = tf.math.divide(tf.math.subtract(tf.dtypes.cast(image, tf.float32), DATA_MEAN), DATA_STD_DEV)
+    image = tf.image.crop_to_bounding_box(image, (DATA_ROWS - DATA_CROP_ROWS) // 2, (DATA_COLS - DATA_CROP_COLS) // 2, DATA_CROP_ROWS, DATA_CROP_COLS)
+    label = tf.dtypes.cast(label, tf.int32)
+    return image, label
+
+
+def load_cifar():
+    """Returns the CIFAR dataset as TensorFlow datasets"""
+    #PREPARE THE CIFAR DATASET
+    # download data and split into training and testing datasets
+    dataset_train, info = tfds.load("cifar10", split=tfds.Split.TRAIN, with_info=True)
+    dataset_test,  info = tfds.load("cifar10", split=tfds.Split.TEST,  with_info=True)
+
+    dataset_train = dataset_train.map(pre_processing_train, num_parallel_calls=4)
+    dataset_train = dataset_train.shuffle(buffer_size=TRAINING_SHUFFLE_BUFFER)
+    dataset_train = dataset_train.batch(TRAINING_BATCH_SIZE)
+    dataset_train = dataset_train.prefetch(buffer_size=3)
+
+    # transform testing dataset
+    dataset_test = dataset_test.map(pre_processing_test, num_parallel_calls=4)
+    dataset_test = dataset_test.batch(TRAINING_BATCH_SIZE)
+    dataset_test = dataset_test.prefetch(buffer_size=3)
+    return dataset_train, dataset_test
+
 ######################################################################
 # MODEL FUNCTIONS
 ######################################################################
@@ -53,14 +113,15 @@ bn_params = {"axis":-1,
              "center":True, 
              "scale":True}
 
-def conv_block(inputs, filters, kernel_size=(3,3), strides=(1,1)):
+def conv_block(inputs, filters, kernel_size=(3,3), strides=(1,1), activation=True):
     """Generic Conv -> BN -> ReLU abstraction"""
     x = Conv2D(filters, kernel_size, strides=strides, **conv_params)(inputs)
     x = BatchNormalization(**bn_params)(x)
-    x = ReLU()(x)
+    if activation:
+        x = ReLU()(x)
     return x  
 
-def VGG_Like_CNN(tail_function, block_function, head_function, input_shape=None, num_levels=None, block_repeats=None, num_downsamples=None, start_dims=32):
+def VGG_Like_CNN(tail_function, block_function, head_function, input_shape=None, num_levels=None, block_repeats=None, num_downsamples=None, start_dims=32, block_params=None):
     """
     INPUTS:
     tail_function: function(in_tensor, dims, **kwargs) -> out tensor
@@ -71,9 +132,12 @@ def VGG_Like_CNN(tail_function, block_function, head_function, input_shape=None,
     block_repeats: list - number of block repeats for each level of VGG-like architecture
     num_downsamples: int - optional max number of downsamples to stop at
     start_dims: int - number of filters to be given to the head block. will double each level
+    block_params: dictionary of kwargs to give to the block_function
     """
     model_input = Input(shape=input_shape)
     dims = int(start_dims)
+    if block_params is None:
+        block_params={}
     
     #TAIL
     x = tail_function(model_input, dims)
@@ -81,14 +145,14 @@ def VGG_Like_CNN(tail_function, block_function, head_function, input_shape=None,
     #BODY
     for level in range(num_levels):
         for block in range(block_repeats[level]):
-            x = block_function(x, dims)
+            x = block_function(x, dims, **block_params)
             
         if num_downsamples is not None:
             if level+1>num_downsamples: #reached max num_downsamples
                 continue
                 
         dims = int(dims*2)
-        x = block_function(x, dims, downsample=True)
+        x = block_function(x, dims, downsample=True, **block_params)
         
     #HEAD
     model_output = head_function(x, dims=dims)
@@ -98,7 +162,10 @@ def VGG_Like_CNN(tail_function, block_function, head_function, input_shape=None,
 
 
 def get_num_params(MODEL):
-    """https://stackoverflow.com/questions/38160940/how-to-count-total-number-of-trainable-parameters-in-a-tensorflow-model"""
+    """
+    Returns the number of trainable parameters in a tensorflow Model
+    
+    https://stackoverflow.com/questions/38160940/how-to-count-total-number-of-trainable-parameters-in-a-tensorflow-model"""
     total_params=1
     for variable in MODEL.trainable_variables:
         variable_params = 1
@@ -109,34 +176,11 @@ def get_num_params(MODEL):
 
 
 
-
-
-
-
-
-
-
-
-
+    
 ######################################################################
 # TRAINING FUNCTIONS FOR THE CIFAR DATASET
 ######################################################################
-def pre_processing_train(example):
-    image = example["image"]
-    label = example["label"]
-    image = tf.math.divide(tf.math.subtract(tf.dtypes.cast(image, tf.float32), DATA_MEAN), DATA_STD_DEV)
-    image = tf.image.random_flip_left_right(image)
-    image = tf.image.random_crop(image, size=[DATA_CROP_ROWS, DATA_CROP_COLS, 3])
-    label = tf.dtypes.cast(label, tf.int32)
-    return image, label
 
-def pre_processing_test(example):
-    image = example["image"]
-    label = example["label"]
-    image = tf.math.divide(tf.math.subtract(tf.dtypes.cast(image, tf.float32), DATA_MEAN), DATA_STD_DEV)
-    image = tf.image.crop_to_bounding_box(image, (DATA_ROWS - DATA_CROP_ROWS) // 2, (DATA_COLS - DATA_CROP_COLS) // 2, DATA_CROP_ROWS, DATA_CROP_COLS)
-    label = tf.dtypes.cast(label, tf.int32)
-    return image, label
 
 # learning rate schedule
 def lr_schedule(epoch):
@@ -175,6 +219,7 @@ def plot_training_curves(history):
     plt.title('Training and Validation Loss')
     plt.xlabel('epoch')
     plt.show()
+    
 
 
 def train(MODEL,train, test, model_name, logs=False):
@@ -194,13 +239,17 @@ def train(MODEL,train, test, model_name, logs=False):
     print(model_name)
     print("######################################################")
     
+    #CREATE PATH TO SAVEDMODEL if not exist
+    save_path = Path(str(SAVE_MODEL_PATH)+model_name+'/')
+    save_path.mkdir(parents=True, exist_ok=True)
+
     callbacks = [tf.keras.callbacks.LearningRateScheduler(lr_schedule),
-                       tf.keras.callbacks.ModelCheckpoint(filepath=str(SAVE_MODEL_PATH)+model_name+'/', 
+                       tf.keras.callbacks.ModelCheckpoint(filepath=str(save_path), 
                                                     save_best_only=True, 
                                                     period=10,
                                                     monitor='val_loss', 
                                                         verbose=0),
-                 tf.keras.callbacks.CSVLogger(str(SAVE_MODEL_PATH)+model_name+'/train_log.csv'),
+                 tf.keras.callbacks.CSVLogger(str(save_path/'train_log.csv')),
                 tf.keras.callbacks.EarlyStopping(patience=4)]
     # training
     initial_epoch_num = 0
@@ -222,3 +271,77 @@ def benchmark(MODEL,test, history, model_name):
     test_loss, test_accuracy = MODEL.evaluate(x=test)
     print('Test loss:     ', test_loss)
     print('Test accuracy: ', test_accuracy)
+    
+    
+######################################################################
+# COMPARING MODEL PERFORMANCES
+######################################################################
+
+def get_hists(list_of_model_names):
+    """
+    Loads the archived training histories into dataframes returns a list
+    
+    input: list of strings: model names to be compared
+    """
+    hists=[]
+    for model_name in list_of_model_names:
+        path = Path(str(SAVE_MODEL_PATH)+model_name+'/train_log.csv')
+        hist = pd.read_csv(path)
+        hists.append(hist)
+    return hists
+
+
+def plot_multiple_training_curves(model_names):
+    """Plots the validation losses and accuracies for multiple models
+    input
+    model_names: list of strings - the name of the directory the model was saved to in train()
+    
+    """
+    list_of_hists = get_hists(model_names)
+    
+    plt.figure(figsize=(8, 8))
+    plt.subplot(2, 1, 1)
+    for C, hist in zip(model_names, list_of_hists):
+        # training and validation data accuracy
+        val_acc = hist['val_accuracy']
+        # plot accuracy
+        plt.plot(val_acc, label='Validation Accuracy: {}'.format(C))
+    plt.legend(loc='lower right')
+    plt.ylabel('Accuracy')
+    plt.ylim([min(plt.ylim()), 1])
+    plt.title('Validation Accuracies')
+
+    plt.subplot(2, 1, 2)    
+    for C, hist in zip(model_names, list_of_hists):
+        # training and validation data loss
+        val_loss = hist['val_loss']
+        # plot loss
+        plt.plot(val_loss, label='Validation Loss: {}'.format(C))
+    plt.legend(loc='upper right')
+    plt.ylabel('Cross Entropy')
+    plt.ylim([0, 2.0])
+    plt.title('Validation Losses')
+    plt.xlabel('epoch')
+    plt.show()
+
+    
+def timeit(MODEL, ds, steps=100):
+    """
+    Timing method for data pipeline iterator.
+    Outputs the time for one-thousand calls to the iterator
+    """
+    start = time.time()
+    it = iter(ds)
+    for i in range(steps):
+        X, y = next(it)
+        if i%10 == 0:
+            print('.',end='')
+        MODEL.predict(X)
+        
+    print()
+    end = time.time()
+    avg = (end-start)/steps
+    print("{} batches: {}s/batch".format(steps, avg))
+
+
+    
