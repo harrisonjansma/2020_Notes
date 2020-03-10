@@ -57,6 +57,15 @@ TRAINING_LR_FINAL   = TRAINING_LR_MAX*TRAINING_LR_FINAL_SCALE
 # saving
 SAVE_MODEL_PATH = 'F://Models/Model_Design/'
 
+conv_params = {"padding":'same',
+              "use_bias":False,
+              "activation":None}
+
+bn_params = {"axis":-1,
+             "momentum":TRAINING_BN_MOMENTUM, 
+             "epsilon":TRAINING_BN_EPSILON, 
+             "center":True, 
+             "scale":True}
 
 ######################################################################
 # DATA PROCESSING CIFAR DATASET
@@ -103,15 +112,7 @@ def load_cifar():
 # MODEL FUNCTIONS
 ######################################################################
 
-conv_params = {"padding":'same',
-              "use_bias":False,
-              "activation":None}
 
-bn_params = {"axis":-1,
-             "momentum":TRAINING_BN_MOMENTUM, 
-             "epsilon":TRAINING_BN_EPSILON, 
-             "center":True, 
-             "scale":True}
 
 def conv_block(inputs, filters, kernel_size=(3,3), strides=(1,1), activation=True):
     """Generic Conv -> BN -> ReLU abstraction"""
@@ -222,13 +223,14 @@ def plot_training_curves(history):
     
 
 
-def train(MODEL,train, test, model_name, logs=False):
+def train(MODEL,train, test, model_name, logs=False, save=True):
     """
     Inputs:
     MODEL: tf.keras.Model - used for training
     train, tests: tf.Datasets
     model_name: string - name of the trained model
     logs: Bool - whether to print logs for each training epoch
+    save: Bool - whether to save the model
     
     Trains MODEL for TRAINING_NUM_EPOCHS epochs, saving best model at 
     each epoch. Plots the training curve and evaluates the final model on
@@ -244,13 +246,15 @@ def train(MODEL,train, test, model_name, logs=False):
     save_path.mkdir(parents=True, exist_ok=True)
 
     callbacks = [tf.keras.callbacks.LearningRateScheduler(lr_schedule),
-                       tf.keras.callbacks.ModelCheckpoint(filepath=str(save_path), 
+                tf.keras.callbacks.EarlyStopping(patience=4)]
+    if save:
+        callbacks.append(tf.keras.callbacks.ModelCheckpoint(filepath=str(save_path), 
                                                     save_best_only=True, 
                                                     period=10,
                                                     monitor='val_loss', 
-                                                        verbose=0),
-                 tf.keras.callbacks.CSVLogger(str(save_path/'train_log.csv')),
-                tf.keras.callbacks.EarlyStopping(patience=4)]
+                                                        verbose=0))
+        callbacks.append(tf.keras.callbacks.CSVLogger(str(save_path/'train_log.csv')))
+    
     # training
     initial_epoch_num = 0
     print("Training model {}...".format(model_name))
