@@ -72,6 +72,7 @@ bn_params = {"axis":-1,
 ######################################################################
 
 def pre_processing_train(example):
+    """input a TensorFlow dataset of images, output a normalized image dataset of type int32 with random flips crops applied"""
     image = example["image"]
     label = example["label"]
     image = tf.math.divide(tf.math.subtract(tf.dtypes.cast(image, tf.float32), DATA_MEAN), DATA_STD_DEV)
@@ -82,6 +83,7 @@ def pre_processing_train(example):
 
 
 def pre_processing_test(example):
+    """Applies the same normalization as above and a crop with no randomness, converts to tf.int32."""
     image = example["image"]
     label = example["label"]
     image = tf.math.divide(tf.math.subtract(tf.dtypes.cast(image, tf.float32), DATA_MEAN), DATA_STD_DEV)
@@ -91,7 +93,10 @@ def pre_processing_test(example):
 
 
 def load_cifar():
-    """Returns the CIFAR dataset as TensorFlow datasets"""
+    """Returns the CIFAR dataset as TensorFlow datasets. 
+    Note that the preprocessing functions above are applied.
+    Note that shuffle -> batch -> prefetch are applied to improve datapipeline performance
+    """
     #PREPARE THE CIFAR DATASET
     # download data and split into training and testing datasets
     dataset_train, info = tfds.load("cifar10", split=tfds.Split.TRAIN, with_info=True)
@@ -107,6 +112,11 @@ def load_cifar():
     dataset_test = dataset_test.batch(TRAINING_BATCH_SIZE)
     dataset_test = dataset_test.prefetch(buffer_size=3)
     return dataset_train, dataset_test
+
+def load_imagenet:
+    #TODO
+    return None
+    
 
 ######################################################################
 # MODEL FUNCTIONS
@@ -124,6 +134,12 @@ def conv_block(inputs, filters, kernel_size=(3,3), strides=(1,1), activation=Tru
 
 def VGG_Like_CNN(tail_function, block_function, head_function, input_shape=None, num_levels=None, block_repeats=None, num_downsamples=None, start_dims=32, block_params=None):
     """
+    This implements a VGG architecture from the given tail, body, and head block design. The body block will be repeated
+    block_repeats number of times, with num_levels of downsampling (or num_downsamples if num_downsamples<num_levels)
+    
+    VGG architecture is characterized by repeated block with repeated designs, followed by downsampling in the heght,width dimension and 
+    expansion along the channel dimension.
+    
     INPUTS:
     tail_function: function(in_tensor, dims, **kwargs) -> out tensor
     block_function: function(in_tensor, dims, downsampling=Bool, **kwargs) -> out tensor
@@ -164,7 +180,7 @@ def VGG_Like_CNN(tail_function, block_function, head_function, input_shape=None,
 
 def get_num_params(MODEL):
     """
-    Returns the number of trainable parameters in a tensorflow Model
+    Returns the number of trainable parameters in a tensorflow Model. Great for comparing the size of two models.
     
     https://stackoverflow.com/questions/38160940/how-to-count-total-number-of-trainable-parameters-in-a-tensorflow-model"""
     total_params=1
@@ -185,6 +201,7 @@ def get_num_params(MODEL):
 
 # learning rate schedule
 def lr_schedule(epoch):
+    """Creates a learning rate schedule for during training. An initial warmup (increasing lr) followed by decay (decreasing lr)"""
     if epoch < TRAINING_LR_INIT_EPOCHS:
         lr = (TRAINING_LR_MAX - TRAINING_LR_INIT)*(float(epoch)/TRAINING_LR_INIT_EPOCHS) + TRAINING_LR_INIT
     else:
@@ -192,6 +209,7 @@ def lr_schedule(epoch):
     return lr
 
 def plot_training_curves(history):
+    """Plots accuracy and loss curves for training and validation data"""
     # training and validation data accuracy
     acc     = history.history['accuracy']
     val_acc = history.history['val_accuracy']
@@ -225,6 +243,11 @@ def plot_training_curves(history):
 
 def train(MODEL,train, test, model_name, logs=False, save=True):
     """
+    Trains the MODEL using the train and test datasets. Utilizes lr_scheduler and early stopping as well as
+    optional Model checkpointing and csvlogging of epoch acc/loss scores.
+    
+    
+    
     Inputs:
     MODEL: tf.keras.Model - used for training
     train, tests: tf.Datasets
@@ -241,13 +264,14 @@ def train(MODEL,train, test, model_name, logs=False, save=True):
     print(model_name)
     print("######################################################")
     
-    #CREATE PATH TO SAVEDMODEL if not exist
-    save_path = Path(str(SAVE_MODEL_PATH)+model_name+'/')
-    save_path.mkdir(parents=True, exist_ok=True)
+    
 
     callbacks = [tf.keras.callbacks.LearningRateScheduler(lr_schedule),
                 tf.keras.callbacks.EarlyStopping(patience=4)]
     if save:
+        #CREATE PATH TO SAVEDMODEL if not exist
+        save_path = Path(str(SAVE_MODEL_PATH)+model_name+'/')
+        save_path.mkdir(parents=True, exist_ok=True)
         callbacks.append(tf.keras.callbacks.ModelCheckpoint(filepath=str(save_path), 
                                                     save_best_only=True, 
                                                     period=10,
@@ -268,7 +292,8 @@ def train(MODEL,train, test, model_name, logs=False, save=True):
     print("Training complete.")
     return history
 
-def benchmark(MODEL,test, history, model_name):
+def benchmark(MODEL, test, history, model_name):
+    """Plots training curves and prints final val accuracy/loss"""
     # plot accuracy and loss curves
     plot_training_curves(history)
     # test
@@ -283,7 +308,7 @@ def benchmark(MODEL,test, history, model_name):
 
 def get_hists(list_of_model_names):
     """
-    Loads the archived training histories into dataframes returns a list
+    Loads the archived training csv logs into dataframes returns a list of pandas dataframes
     
     input: list of strings: model names to be compared
     """
@@ -296,7 +321,10 @@ def get_hists(list_of_model_names):
 
 
 def plot_multiple_training_curves(model_names):
-    """Plots the validation losses and accuracies for multiple models
+    """
+    Plots the side-by-side validation losses and accuracies for multiple models from their training csv logs.
+    
+    
     input
     model_names: list of strings - the name of the directory the model was saved to in train()
     
