@@ -43,11 +43,11 @@ TRAINING_SHUFFLE_BUFFER  = 5000
 TRAINING_BN_MOMENTUM     = 0.9
 TRAINING_BN_EPSILON      = 0.001
 
-TRAINING_LR_MAX          = 0.001
+TRAINING_LR_MAX          = 0.003
 TRAINING_LR_INIT_SCALE   = 0.01
-TRAINING_LR_INIT_EPOCHS  = 5
+TRAINING_LR_INIT_EPOCHS  = 7
 TRAINING_LR_FINAL_SCALE  = 0.01
-TRAINING_LR_FINAL_EPOCHS = 25
+TRAINING_LR_FINAL_EPOCHS = 23
 
 # training (derived)
 TRAINING_NUM_EPOCHS = TRAINING_LR_INIT_EPOCHS + TRAINING_LR_FINAL_EPOCHS
@@ -118,8 +118,6 @@ def load_cifar():
 # MODEL FUNCTIONS
 ######################################################################
 
-
-
 def conv_block(inputs, filters, kernel_size=(3,3), strides=(1,1), activation=True):
     """Generic Conv -> BN -> ReLU abstraction"""
     x = Conv2D(filters, kernel_size, strides=strides, **conv_params)(inputs)
@@ -127,6 +125,7 @@ def conv_block(inputs, filters, kernel_size=(3,3), strides=(1,1), activation=Tru
     if activation:
         x = ReLU()(x)
     return x  
+
 
 def VGG_Like_CNN(tail_function, block_function, head_function, input_shape=None, block_repeats=None, num_downsamples=None, start_dims=32, block_params=None, **kwargs):
     """
@@ -156,7 +155,7 @@ def VGG_Like_CNN(tail_function, block_function, head_function, input_shape=None,
     
     #BODY
     for level in range(len(block_repeats)):
-        for block in range(block_repeats[level]):
+        for block in range(block_repeats[level]-1):
             x = block_function(x, dims, **block_params)
             
         if num_downsamples is not None:
@@ -165,12 +164,11 @@ def VGG_Like_CNN(tail_function, block_function, head_function, input_shape=None,
                 
         dims = int(dims*2)
         x = block_function(x, dims, downsample=True, **block_params)
+        x = MaxPool2D()(x)
         
     #HEAD
     model_output = head_function(x, dims=dims)
     return tf.keras.Model(inputs=model_input, outputs=model_output)
-
-
 
 
 def get_num_params(MODEL):
@@ -188,7 +186,6 @@ def get_num_params(MODEL):
 
 
 
-    
 ######################################################################
 # TRAINING FUNCTIONS FOR THE CIFAR DATASET
 ######################################################################
@@ -260,8 +257,8 @@ def train(MODEL,train, test, model_name, logs=False, save=True):
     
     
 
-    callbacks = [tf.keras.callbacks.LearningRateScheduler(lr_schedule),
-                tf.keras.callbacks.EarlyStopping(patience=4)]
+    callbacks = [tf.keras.callbacks.LearningRateScheduler(lr_schedule)]
+                #tf.keras.callbacks.EarlyStopping(patience=4)]
     if save:
         #CREATE PATH TO SAVEDMODEL if not exist
         save_path = Path(str(SAVE_MODEL_PATH)+model_name+'/')
