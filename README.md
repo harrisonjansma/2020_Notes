@@ -4,10 +4,9 @@ This repository contains various scripts, jupyter notebooks, and other notes on 
 
 In the future, I plan on including a detailed list of the most useful learning path that I find. I am currently focusing most of my efforts on learning reinforcement learning methods.
 
- ## Bash
- - [Notes](https://github.com/harrisonjansma/2020_Notes/tree/master/Bash)
+
   
- ## Deep Learning
+ ## Deep Learning (DL)
  
  ### Courses
  
@@ -19,11 +18,11 @@ In the future, I plan on including a detailed list of the most useful learning p
  - [Homeworks](https://github.com/harrisonjansma/2020_Notes/tree/master/DL/Courses/CS6301%20CNNs%20UTD)
  - [Projects](https://github.com/harrisonjansma/2020_Notes/tree/master/DL/Courses/CS6301%20CNNs%20UTD/Project)
  
- ### FrameWork Notebooks
+ ### FrameWork Tutorials
  - [PyTorch](https://github.com/harrisonjansma/2020_Notes/tree/master/DL/Frameworks/PyTorch)
  - [TensorFlow](https://github.com/harrisonjansma/2020_Notes/tree/master/DL/Frameworks/TensorFlow)
  
- ### Implementations
+ ### Neural Network Implementations
  
  __Image Recognition__
  - [ResNet MobileNetV2](https://github.com/harrisonjansma/2020_Notes/blob/master/DL/Implementations/CV/Image_Recognition/0_ResNet_and_MobileNet_V2.ipynb)
@@ -36,9 +35,9 @@ In the future, I plan on including a detailed list of the most useful learning p
  __Training Optimization__
  - [tflite/fit one cycle](https://github.com/harrisonjansma/2020_Notes/tree/master/DL/Implementations/Training%20Optimization)
  
-    
      
  ## Data Engineering
+ - [Bash](https://github.com/harrisonjansma/2020_Notes/tree/master/Bash)
  - [Spark/HIVE](https://github.com/harrisonjansma/2020_Notes/tree/master/Data%20Engineering/Big%20Data)
  - [AWS](https://github.com/harrisonjansma/2020_Notes/tree/master/Data%20Engineering/AWS)
  - [Django](https://github.com/harrisonjansma/2020_Notes/tree/master/Data%20Engineering/Django%20SQL%20App)
@@ -52,9 +51,7 @@ In the future, I plan on including a detailed list of the most useful learning p
  
  ## Reinforcement Learning
  - [Policy Gradients](https://github.com/harrisonjansma/2020_Notes/tree/master/RL)
-          
-           
-            
+     
              
               
 ##### Huck, get out of my repo!
