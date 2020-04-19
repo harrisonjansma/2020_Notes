@@ -43,13 +43,13 @@ In the future, I plan on including a detailed list of the most useful learning p
  - [Django](https://github.com/harrisonjansma/2020_Notes/tree/master/Data%20Engineering/Django%20SQL%20App)
        
         
- ## Machine Learning
+ ## Machine Learning (ML)
  - [Decision Tree Implementation](https://github.com/harrisonjansma/2020_Notes/tree/master/ML/Decision%20Tree%20Implementation)
  - [Gradient Boosting Notes](https://github.com/harrisonjansma/2020_Notes/tree/master/ML/Gradient%20Boosting%20Notes)
  - [Hidden Markov Models](https://github.com/harrisonjansma/2020_Notes/tree/master/ML/Hidden%20Markov%20Model%20Implementation)
  - [KMeans](https://github.com/harrisonjansma/2020_Notes/tree/master/ML/KMeans%20Implementation)
  
- ## Reinforcement Learning
+ ## Reinforcement Learning (RL)
  - [Policy Gradients](https://github.com/harrisonjansma/2020_Notes/tree/master/RL)
      
              
